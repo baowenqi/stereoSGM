@@ -115,7 +115,7 @@ stereoSGM::status_t stereoSGM::f_getMatchCost
 (
     int32_t *ctLeft,
     int32_t *ctRight,
-    int8_t  *matchCost
+    stereoSGMCostCube<int8_t> &matchCost
 )
 {
     const int32_t matchCostLP = m_imgWidth * m_imgDisp;
@@ -133,8 +133,7 @@ stereoSGM::status_t stereoSGM::f_getMatchCost
                 // not out-of-boundary, otherwise use zero  //
                 // ---------------------------------------- //
                 if(x - d >= 0) rightData = *(ctRight + y * m_imgWidth + x - d);
-                *(matchCost + y * matchCostLP + x * m_imgDisp + d) = \
-                f_getHammingDistance(leftData, rightData);
+                matchCost.set(x, y, d, f_getHammingDistance(leftData, rightData));
             }
         }
     }

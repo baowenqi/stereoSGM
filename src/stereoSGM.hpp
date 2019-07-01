@@ -1,6 +1,49 @@
 #pragma once
 #include <stdint.h>
 
+// ------------------------------------------------- //
+// a customized structure providing the abstraction  //
+// to the cost cubes used by stereo engine           //
+// ------------------------------------------------- //
+template<typename T> struct stereoSGMCostCube
+{
+    int32_t  m_cubeWidth;
+    int32_t  m_cubeHeight;
+    int32_t  m_cubeDisp;
+    T        m_cubeBoundaryVal;
+    T       *m_cube;
+
+    stereoSGMCostCube(int32_t i_cubeWidth, int32_t i_cubeHeight, int32_t i_cubeDisp, int32_t i_cubeBoundaryVal) :
+    m_cubeWidth(i_cubeWidth), m_cubeHeight(i_cubeHeight), m_cubeDisp(i_cubeDisp), m_cubeBoundaryVal(i_cubeBoundaryVal)
+    { m_cube = new T[m_cubeHeight * m_cubeWidth * m_cubeDisp]; }
+
+   ~stereoSGMCostCube()
+    { delete []m_cube; }
+
+    // --------------------------------------------- //                                          
+    // if coordinate(x, y, d) is out-of-boundary,    //
+    // get method return a constant value predefined //
+    // set method dummy the operation                //
+    // --------------------------------------------- //
+    T get(int32_t x, int32_t y, int32_t d)
+    {
+        if(x >= 0 && x < m_cubeWidth &&
+           y >= 0 && y < m_cubeHeight &&
+           d >= 0 && d < m_cubeDisp)
+           return *(m_cube + y * m_cubeWidth * m_cubeDisp + x * m_cubeDisp + d);
+        else
+           return m_cubeBoundaryVal;
+    }
+    
+    void set(int32_t x, int32_t y, int32_t d, T val)
+    {
+        if(x >= 0 && x < m_cubeWidth &&
+           y >= 0 && y < m_cubeHeight &&
+           d >= 0 && d < m_cubeDisp)
+           *(m_cube + y * m_cubeWidth * m_cubeDisp + x * m_cubeDisp + d) = val;
+    }
+};
+
 class stereoSGM
 {
     public:
@@ -45,7 +88,7 @@ class stereoSGM
     // --------------------------------------------- //
     status_t f_censusTransform5x5(uint8_t *src, int32_t *dst);
     int8_t   f_getHammingDistance(int32_t src1, int32_t src2);
-    status_t f_getMatchCost(int32_t *ctLeft, int32_t *ctRight, int8_t *matchCost);
+    status_t f_getMatchCost(int32_t *ctLeft, int32_t *ctRight, stereoSGMCostCube<int8_t> &matchCost);
     status_t f_getPathCost(int8_t *matchCost, int8_t *pathCost, e_direction dir);
     status_t f_aggregateCost(int8_t *matchCost, int32_t *sumCost);
     status_t f_pickDisparity(int32_t *sumCost, int8_t *dispMap, pickLR_t lr);
