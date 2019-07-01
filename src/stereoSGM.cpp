@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include <algorithm>
 #include "stereoSGM.hpp"
 
 using namespace std;
@@ -137,6 +138,110 @@ stereoSGM::status_t stereoSGM::f_getMatchCost
             }
         }
     }
+    return SUCCESS;
+}
+
+template<stereoSGM::e_direction dir>
+stereoSGM::status_t stereoSGM::f_getPathCost
+(
+    stereoSGMCostCube<int8_t> &matchCost,
+    stereoSGMCostCube<int8_t> &pathCost
+)
+{
+    // ----------------------------------- //
+    // initial the searching variables     //
+    // according to different directions   //
+    // ----------------------------------- //
+    int dx, dy;
+    switch(dir)
+    {
+        case(0):
+            dx = -1;
+            dy =  0;
+            break;
+        case(1):
+            dx = -1;
+            dy = -1;
+            break;
+        case(2):
+            dx =  0;
+            dy = -1;
+            break;
+        case(3):
+            dx =  1;
+            dy = -1;
+            break;
+        case(4):
+            dx =  1;
+            dy =  0;
+            break;
+        case(5):
+            dx =  1;
+            dy =  1;
+            break;
+        case(6):
+            dx =  0;
+            dy =  1;
+            break;
+        case(7):
+            dx = -1;
+            dy =  1;
+            break;
+        default:
+            // fatal error
+            return -1;
+    }
+
+    int xStart, xEnd, xInc;
+    int yStart, yEnd, yInc;
+    switch(dir)
+    {
+        // ----------------------------------- //
+        // traverse from top-left to bot-right //
+        // ----------------------------------- //
+        case(0): case(1): case(2): case(3):
+            xStart = 0;
+            xEnd = m_imgWidth;
+            xInc = 1;
+            yStart = 0;
+            yEnd = m_imgHeight;
+            yInc = 1;
+            break;
+        // ----------------------------------- //
+        // traverse from bot-right to top-left //
+        // ----------------------------------- //
+        case(4): case(5): case(6): case(7):
+            xStart = m_imgWidth;
+            xEnd = 0;
+            xInc = -1;
+            yStart = m_imgHeight;
+            yEnd = 0;
+            yInc = -1;
+            break;
+        default:
+            // fatal error
+            return -1;
+    }
+
+    for(int y = yStart; y < yEnd; y += yInc)
+    {
+        for(int x = xStart; x < xEnd; x += xInc)
+        {
+            for(int d = 0; d < m_imgDisp; d++)
+            {
+                int8_t c    = matchCost.get(x,      y,      d);
+                int8_t la   = pathCost.get (x + dx, y + dy, d);
+                int8_t lb   = pathCost.get (x + dx, y + dy, d - 1) + m_P1;
+                int8_t lc   = pathCost.get (x + dx, y + dy, d + 1) + m_P1;
+                int8_t lmin = pathCost.getMin(x + dx, y + dy);
+                int8_t ld   = lmin + m_P2;
+                int8_t min4 = min(min(min(la, lb), lc), ld);
+
+                pathCost.set(x, y, d, c + min4 - lmin);
+            }
+        }
+    }
+
     return SUCCESS;
 }
 

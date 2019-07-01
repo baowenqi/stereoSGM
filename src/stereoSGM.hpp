@@ -10,12 +10,16 @@ template<typename T> struct stereoSGMCostCube
     int32_t  m_cubeWidth;
     int32_t  m_cubeHeight;
     int32_t  m_cubeDisp;
+    int32_t  m_cubeLP;
     T        m_cubeBoundaryVal;
     T       *m_cube;
 
     stereoSGMCostCube(int32_t i_cubeWidth, int32_t i_cubeHeight, int32_t i_cubeDisp, int32_t i_cubeBoundaryVal) :
     m_cubeWidth(i_cubeWidth), m_cubeHeight(i_cubeHeight), m_cubeDisp(i_cubeDisp), m_cubeBoundaryVal(i_cubeBoundaryVal)
-    { m_cube = new T[m_cubeHeight * m_cubeWidth * m_cubeDisp]; }
+    {
+        m_cubeLP = m_cubeWidth * m_cubeDisp;
+        m_cube = new T[m_cubeHeight * m_cubeLP];
+    }
 
    ~stereoSGMCostCube()
     { delete []m_cube; }
@@ -30,7 +34,7 @@ template<typename T> struct stereoSGMCostCube
         if(x >= 0 && x < m_cubeWidth &&
            y >= 0 && y < m_cubeHeight &&
            d >= 0 && d < m_cubeDisp)
-           return *(m_cube + y * m_cubeWidth * m_cubeDisp + x * m_cubeDisp + d);
+           return *(m_cube + y * m_cubeLP + x * m_cubeDisp + d);
         else
            return m_cubeBoundaryVal;
     }
@@ -40,7 +44,26 @@ template<typename T> struct stereoSGMCostCube
         if(x >= 0 && x < m_cubeWidth &&
            y >= 0 && y < m_cubeHeight &&
            d >= 0 && d < m_cubeDisp)
-           *(m_cube + y * m_cubeWidth * m_cubeDisp + x * m_cubeDisp + d) = val;
+           *(m_cube + y * m_cubeLP + x * m_cubeDisp + d) = val;
+    }
+
+    // --------------------------------------------- //                                          
+    // find the mininum cost in disp column(x, y)    //
+    // --------------------------------------------- //                                          
+    T getMin(int32_t x, int32_t y)
+    {
+        T min = m_cubeBoundaryVal;
+        if(x >= 0 && x < m_cubeWidth && y >= 0 && y < m_cubeHeight)
+        {
+            int cubeOfst = y * m_cubeLP + x * m_cubeDisp;
+            for(int d = 0; d < m_cubeDisp; d++)
+            {
+                T val = *(m_cube + cubeOfst + d);
+                if(val < min) min = val;
+            }
+        }
+
+        return min;
     }
 };
 
@@ -89,7 +112,7 @@ class stereoSGM
     status_t f_censusTransform5x5(uint8_t *src, int32_t *dst);
     int8_t   f_getHammingDistance(int32_t src1, int32_t src2);
     status_t f_getMatchCost(int32_t *ctLeft, int32_t *ctRight, stereoSGMCostCube<int8_t> &matchCost);
-    status_t f_getPathCost(int8_t *matchCost, int8_t *pathCost, e_direction dir);
+    template<e_direction dir> status_t f_getPathCost(stereoSGMCostCube<int8_t> &matchCost, stereoSGMCostCube<int8_t> &pathCost);
     status_t f_aggregateCost(int8_t *matchCost, int32_t *sumCost);
     status_t f_pickDisparity(int32_t *sumCost, int8_t *dispMap, pickLR_t lr);
     status_t f_checkLeftRight(int8_t *dispLeft, int8_t *dispRight, int8_t *dispMap);
