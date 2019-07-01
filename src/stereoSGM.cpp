@@ -11,7 +11,7 @@ using namespace std;
 // center element so the output can be encoded in    //
 // int32_t (lower 24 bits are useful).               //
 // the mapping of the window elements position and   //
-// output bit position is like:                      //
+// output bit position (center-skipped) is like:     //
 //      0    1    2    3    4                        //
 //   |----+----+----+----+----|                      //
 // 0 | 23 | 22 | 21 | 20 | 19 |                      // 
@@ -34,20 +34,12 @@ stereoSGM::status_t stereoSGM::f_censusTransform5x5
 )
 {
     // --------------------------------------------- //
-    // in this kernel, for the simplicity, we fix    //
-    // some parameters                               //
-    // --------------------------------------------- //
-    const int32_t winSize = 5;
-    const int32_t winRad = (winSize - 1) / 2;
-    const int32_t msbPos = 23;
-
-    // --------------------------------------------- //
     // as the census transform window is 5x5, need   //
     // to pad 2 to the border so the src line pitch  //
     // is 4-element larger then dst                  // 
     // --------------------------------------------- //
     const int32_t dstLinePitch = m_imgWidth;
-    const int32_t srcLinePitch = dstLinePitch + winRad * 2;
+    const int32_t srcLinePitch = dstLinePitch + ctWinRad * 2;
 
     for(int dy = 0; dy < m_imgHeight; dy++)
     {
@@ -60,14 +52,14 @@ stereoSGM::status_t stereoSGM::f_censusTransform5x5
             // the window so that + winRad to get    //
             // center                                //
             // ------------------------------------- //
-            int32_t srcCenterOfst = (dy + winRad) * srcLinePitch + (dx + winRad);
+            int32_t srcCenterOfst = (dy + ctWinRad) * srcLinePitch + (dx + ctWinRad);
             uint8_t srcCenter = *(src + srcCenterOfst);
 
-            for(int wy = 0; wy < winSize; wy++)
+            for(int wy = 0; wy < ctWinSize; wy++)
             {
-                for(int wx = 0; wx < winSize; wx++)
+                for(int wx = 0; wx < ctWinSize; wx++)
                 {
-                    int32_t bitPos = msbPos - (wy * winSize + wx);
+                    int32_t bitPos = ctDataMsb - (wy * ctWinSize + wx);
 
                     // ----------------------------- //
                     // skip the center element       //
@@ -89,6 +81,63 @@ stereoSGM::status_t stereoSGM::f_censusTransform5x5
         }
     }
 
+    return SUCCESS;
+}
+
+// ------------------------------------------------- //
+// hamming distance is the number of different bits  //
+// between src1 and src2. so we xor src1 and src2    //
+// first and count the number of 1s. As the prestage //
+// is 5x5 census transform, only 24 useful bits, the //
+// max distance is 24 which can be store in 1 byte.  //
+// ------------------------------------------------- //
+int8_t stereoSGM::f_getHammingDistance
+(
+    int32_t src1,
+    int32_t src2
+)
+{
+    int32_t diff = src1 ^ src2;
+
+    int8_t distance = 0;
+    for(int i = 0; i < ctDataLen; i++) distance += (diff >> i) & 1;
+
+    return distance;
+}
+
+// ------------------------------------------------- //
+// the pixel-wise matching cost is the hamming dist- //
+// ance between L(x) and R(x+d), here d ranges from  //
+// 0 to max disparity and forms a matching cost cube //
+// matchCost(h * w * d), d is the inner-most dim.    //
+// ------------------------------------------------- //
+stereoSGM::status_t stereoSGM::f_getMatchCost
+(
+    int32_t *ctLeft,
+    int32_t *ctRight,
+    int8_t  *matchCost
+)
+{
+    const int32_t matchCostLP = m_imgWidth * m_imgDisp;
+
+    for(int y = 0; y < m_imgHeight; y++)
+    {
+        for(int x = 0; x < m_imgWidth; x++)
+        {
+            int32_t leftData = *(ctLeft + y * m_imgWidth + x);
+            for(int d = 0; d < m_imgDisp; d++)
+            {
+                int32_t rightData = 0;
+                // ---------------------------------------- //
+                // we need to make sure the right pixel is  //
+                // not out-of-boundary, otherwise use zero  //
+                // ---------------------------------------- //
+                if(x - d >= 0) rightData = *(ctRight + y * m_imgWidth + x - d);
+                *(matchCost + y * matchCostLP + x * m_imgDisp + d) = \
+                f_getHammingDistance(leftData, rightData);
+            }
+        }
+    }
     return SUCCESS;
 }
 
