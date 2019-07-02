@@ -141,7 +141,7 @@ stereoSGM::status_t stereoSGM::f_getMatchCost
     return SUCCESS;
 }
 
-template<stereoSGM::e_direction dir>
+template<stereoSGM::direction_t dir>
 stereoSGM::status_t stereoSGM::f_getPathCost
 (
     stereoSGMCostCube<int8_t> &matchCost,
@@ -155,35 +155,35 @@ stereoSGM::status_t stereoSGM::f_getPathCost
     int dx, dy;
     switch(dir)
     {
-        case(0):
+        case(L0):
             dx = -1;
             dy =  0;
             break;
-        case(1):
+        case(L1):
             dx = -1;
             dy = -1;
             break;
-        case(2):
+        case(L2):
             dx =  0;
             dy = -1;
             break;
-        case(3):
+        case(L3):
             dx =  1;
             dy = -1;
             break;
-        case(4):
+        case(L4):
             dx =  1;
             dy =  0;
             break;
-        case(5):
+        case(L5):
             dx =  1;
             dy =  1;
             break;
-        case(6):
+        case(L6):
             dx =  0;
             dy =  1;
             break;
-        case(7):
+        case(L7):
             dx = -1;
             dy =  1;
             break;
@@ -199,7 +199,7 @@ stereoSGM::status_t stereoSGM::f_getPathCost
         // ----------------------------------- //
         // traverse from top-left to bot-right //
         // ----------------------------------- //
-        case(0): case(1): case(2): case(3):
+        case(L0): case(L1): case(L2): case(L3):
             xStart = 0;
             xEnd = m_imgWidth;
             xInc = 1;
@@ -210,7 +210,7 @@ stereoSGM::status_t stereoSGM::f_getPathCost
         // ----------------------------------- //
         // traverse from bot-right to top-left //
         // ----------------------------------- //
-        case(4): case(5): case(6): case(7):
+        case(L4): case(L5): case(L6): case(L7):
             xStart = m_imgWidth;
             xEnd = 0;
             xInc = -1;
@@ -237,6 +237,13 @@ stereoSGM::status_t stereoSGM::f_getPathCost
                 int8_t ld   = lmin + m_P2;
                 int8_t min4 = min(min(min(la, lb), lc), ld);
 
+                // ------------------------------------ //
+                // perform the key equation in SGM:     //
+                // Lr = C + min(Lr-1(d),                //
+                //              Lr-1(d-1)+P1,           // 
+                //              Lr-1(d+1)+P1,           //
+                //              min(Lr)+P2) - min(Lr)   //
+                // ------------------------------------ //
                 pathCost.set(x, y, d, c + min4 - lmin);
             }
         }

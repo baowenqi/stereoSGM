@@ -104,7 +104,7 @@ class stereoSGM
     int8_t   m_invalid;
     int8_t   m_threshold;
     typedef enum e_direction {L0, L1, L2, L3, L4, L5, L6, L7} direction_t;
-    typedef enum e_pickLR {LEFT, RIGHT} pickLR_t;
+    typedef enum e_dispmap {LEFT, RIGHT} dispmap_t;
 
     // --------------------------------------------- //                                          
     // private methods                               //
@@ -112,9 +112,9 @@ class stereoSGM
     status_t f_censusTransform5x5(uint8_t *src, int32_t *dst);
     int8_t   f_getHammingDistance(int32_t src1, int32_t src2);
     status_t f_getMatchCost(int32_t *ctLeft, int32_t *ctRight, stereoSGMCostCube<int8_t> &matchCost);
-    template<e_direction dir> status_t f_getPathCost(stereoSGMCostCube<int8_t> &matchCost, stereoSGMCostCube<int8_t> &pathCost);
-    status_t f_aggregateCost(int8_t *matchCost, int32_t *sumCost);
-    status_t f_pickDisparity(int32_t *sumCost, int8_t *dispMap, pickLR_t lr);
+    template<direction_t dir> status_t f_getPathCost(stereoSGMCostCube<int8_t> &matchCost, stereoSGMCostCube<int8_t> &pathCost);
+    status_t f_aggregateCost(stereoSGMCostCube<int8_t> &matchCost, stereoSGMCostCube<int32_t> &sumCost);
+    template<dispmap_t lr> status_t f_pickDisparity(stereoSGMCostCube<int32_t> &sumCost, int8_t *dispMap);
     status_t f_checkLeftRight(int8_t *dispLeft, int8_t *dispRight, int8_t *dispMap);
     status_t f_medianFilter3x3(int8_t *src, int8_t *dst);
 };
