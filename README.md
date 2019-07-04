@@ -7,7 +7,7 @@ The stereSGM engine itself is OpenCV indenpendent, while the testbench uses the 
 ### Build steps
 
 ### Results
-![](data/cones/img2.png)
-![](data/cones/img6.png)
+![](data/cones/im2.png)
+![](data/cones/im6.png)
 ![](data/cones/my_result.png)
 
