@@ -15,6 +15,10 @@ int main()
 {
     cout << "start the stereoSGM test..." << endl;
 
+    // ------------------------------------- //
+    // get the left and right image          //
+    // pad the boundry using opencv function //
+    // ------------------------------------- //
     Mat imgLeft  = imread("../data/cones/im2.png", CV_LOAD_IMAGE_GRAYSCALE);
     Mat imgRight = imread("../data/cones/im6.png", CV_LOAD_IMAGE_GRAYSCALE);
 
@@ -22,20 +26,22 @@ int main()
     copyMakeBorder(imgLeft, padLeft, 2, 2, 2, 2, BORDER_CONSTANT, 0);
     copyMakeBorder(imgRight, padRight, 2, 2, 2, 2, BORDER_CONSTANT, 0);
 
-    imshow("test", padLeft);
-    waitKey(0);
-    imshow("test", padRight);
-    waitKey(0);
-
+    // -------------------------------------- //
+    // initial the stereo engine with image   //
+    // geometry, max disparity and penalties  //
+    // then start to compute the disparity    //
+    // map by inputing the left and right bin //
+    // -------------------------------------- //
     stereoSGM sgmEngine(imgLeft.cols, imgLeft.rows, MAX_DISP, P1, P2);
     sgmEngine.compute(padLeft.data, padRight.data);
 
     // -------------------------------------- //
     // display the result for visual check    //
-    // make the invalid as 0                  //
-    // normalize the result                   //
+    // 1. make the invalid as 0               //
+    // 2. normalize the result to [0.0, 1.0)  //
     // -------------------------------------- //
-    float *display = new float[imgLeft.cols * imgLeft.rows];
+    float   *dispFlt = new float[imgLeft.cols * imgLeft.rows];
+    uint8_t *dispInt = new uint8_t[imgLeft.cols * imgLeft.rows];
 
     uint8_t max = 0;
     for(int i = 0; i < imgLeft.cols * imgLeft.rows; i++)
@@ -43,17 +49,20 @@ int main()
         int8_t val = *(sgmEngine.m_dispMap + i);
         if(val == -1) val = 0;
         if(val > max) max = val;
-        *(display + i) = static_cast<float>(val);
+        *(dispFlt + i) = static_cast<float>(val);
     }
 
     for(int i = 0; i < imgLeft.cols * imgLeft.rows; i++)
     {
-        *(display + i) /= static_cast<float>(max);
+        *(dispInt + i) = static_cast<uint8_t>(*(dispFlt + i) / static_cast<float>(max) * 255.0f);
     }
 
-    Mat dispImage = Mat(imgLeft.rows, imgLeft.cols, CV_32F, display);
-    imshow("test", dispImage);
+    Mat dispImage = Mat(imgLeft.rows, imgLeft.cols, CV_8U, dispInt);
+    imwrite("../data/cones/my_result.png", dispImage);
+    imshow("disparity map", dispImage);
     waitKey(0);
 
+    delete []dispFlt;
+    delete []dispInt;
     return 0;
 }
