@@ -6,11 +6,165 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
-#include <cstdio>
-#include <cstring>
-
 using namespace std;
 using namespace cv;
+
+// --------------------------------------------- //                                          
+// Methods of stereoSGMCostCube structure        //
+// --------------------------------------------- //                                          
+template<typename T>
+stereoSGMCostCube<T>::stereoSGMCostCube
+(
+    int32_t i_cubeWidth,
+    int32_t i_cubeHeight,
+    int32_t i_cubeDisp,
+    int32_t i_cubeBoundaryVal
+) :
+m_cubeWidth(i_cubeWidth),
+m_cubeHeight(i_cubeHeight),
+m_cubeDisp(i_cubeDisp),
+m_cubeBoundaryVal(i_cubeBoundaryVal)
+{
+    m_cubeLP = m_cubeWidth * m_cubeDisp;
+    m_cube = new T[m_cubeHeight * m_cubeLP];
+    std::fill_n(m_cube, 0, m_cubeHeight * m_cubeLP * sizeof(T));
+}
+
+template<typename T>
+stereoSGMCostCube<T>::~stereoSGMCostCube(){ delete []m_cube; }
+
+// --------------------------------------------- //                                          
+// if coordinate(x, y, d) is out-of-boundary,    //
+// get method return a constant value predefined //
+// set method dummy the operation                //
+// --------------------------------------------- //
+template<typename T>
+T stereoSGMCostCube<T>::get(int32_t x, int32_t y, int32_t d)
+{
+    if(x >= 0 && x < m_cubeWidth &&
+       y >= 0 && y < m_cubeHeight &&
+       d >= 0 && d < m_cubeDisp)
+       return *(m_cube + y * m_cubeLP + x * m_cubeDisp + d);
+    else
+       return m_cubeBoundaryVal;
+}
+
+template<typename T>
+void stereoSGMCostCube<T>::set(int32_t x, int32_t y, int32_t d, T val)
+{
+    if(x >= 0 && x < m_cubeWidth &&
+       y >= 0 && y < m_cubeHeight &&
+       d >= 0 && d < m_cubeDisp)
+       *(m_cube + y * m_cubeLP + x * m_cubeDisp + d) = val;
+}
+
+// --------------------------------------------- //                                          
+// find the mininum cost in disp column(x, y)    //
+// --------------------------------------------- //                                          
+template<typename T>
+T stereoSGMCostCube<T>::getMin(int32_t x, int32_t y)
+{
+    T min = m_cubeBoundaryVal;
+    if(x >= 0 && x < m_cubeWidth && y >= 0 && y < m_cubeHeight)
+    {
+        int cubeOfst = y * m_cubeLP + x * m_cubeDisp;
+        for(int d = 0; d < m_cubeDisp; d++)
+        {
+            T val = *(m_cube + cubeOfst + d);
+            if(val < min) min = val;
+        }
+    }
+    return min;
+}
+
+// --------------------------------------------- //                                          
+// overload this operator to accumulate path     //
+// costs to sum cost                             //
+// --------------------------------------------- //
+template<typename T>
+stereoSGMCostCube<T>& stereoSGMCostCube<T>::operator+=(const stereoSGMCostCube<T>& rhs)
+{
+    for(int i = 0; i < m_cubeHeight * m_cubeLP; i++)
+    {
+        *(this->m_cube + i) += static_cast<T>(*(rhs.m_cube + i));
+    }
+    return *this;
+}
+
+// --------------------------------------------- //                                          
+// Methods of stereoSGM class                    //
+// --------------------------------------------- //                                          
+stereoSGM::stereoSGM
+(
+    int32_t i_imgWidth,
+    int32_t i_imgHeight,
+    int32_t i_imgDisp,
+    int8_t  i_P1,
+    int8_t  i_P2
+) :
+m_imgWidth(i_imgWidth),
+m_imgHeight(i_imgHeight),
+m_imgDisp(i_imgDisp),
+m_P1(i_P1),
+m_P2(i_P2)
+{
+    // --------------------------------------------- //
+    // the disparity range should be multiple of 16  //
+    // in this example, disparity is 64              //
+    // make sure P1 is smaller than P2 (constant)    //
+    // --------------------------------------------- //
+    assert(m_imgDisp % 16 == 0);
+    assert(m_P1 < m_P2);
+
+    m_dispMap = new int8_t[m_imgWidth * m_imgHeight];
+}
+
+stereoSGM::~stereoSGM()
+{
+    if(m_dispMap != nullptr) delete []m_dispMap;
+}
+
+// ------------------------------------------------------------------------------------------------------------ //
+// this is kernel of the stereo engine, the SGM flow is like:                                                   //
+// +-------+     +---------------+     +--------------+     +-----------------+                                 //
+// | CT5x5 | ==> | compute       |     | compute      | ==> | pick left disp  | ==> +-------+                   //
+// +-------+     | match cost    |     | 8 path costs |     +-----------------+     | left  |     +-----------+ //
+//               | get cost cube | ==> | aggregate to |                             | right | ==> | median3x3 | //
+// +-------+     | [H * W * D]   |     | sum cost     |     +-----------------+     | check |     +-----------+ //
+// | CT5x5 | ==> |               |     | [H * W * D]  | ==> | pick right disp | ==> +-------+                   //
+// +-------+     +---------------+     +--------------+     +-----------------+                                 //
+//                                                                                                              //
+// the function inputs are left and right buffers and output is in m_dispMap buffer.                            //
+// ------------------------------------------------------------------------------------------------------------ //
+stereoSGM::status_t stereoSGM::compute
+(
+    uint8_t *imgLeft,
+    uint8_t *imgRight
+)
+{
+    int32_t *ctLeft    = new int32_t[m_imgWidth * m_imgHeight];
+    int32_t *ctRight   = new int32_t[m_imgWidth * m_imgHeight];
+    int8_t  *dispLeft  = new int8_t [m_imgWidth * m_imgHeight];
+    int8_t  *dispRight = new int8_t [m_imgWidth * m_imgHeight];
+    stereoSGMCostCube<int32_t> matchCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
+    stereoSGMCostCube<int32_t> sumCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
+
+    f_censusTransform5x5(imgLeft,  ctLeft);
+    f_censusTransform5x5(imgRight, ctRight);
+    f_getMatchCost(ctLeft, ctRight, matchCost);
+    f_aggregateCost(matchCost, sumCost);
+    f_pickDisparity<LEFT>(sumCost, dispLeft);
+    f_pickDisparity<RIGHT>(sumCost, dispRight);
+    f_checkLeftRight(dispLeft, dispRight);
+    f_medianFilter3x3(dispLeft, m_dispMap);
+
+    delete []ctLeft;
+    delete []ctRight;
+    delete []dispLeft;
+    delete []dispRight;
+
+    return SUCCESS;
+}
 
 // ------------------------------------------------- //
 // census transform over a 5x5 window.               //
@@ -419,62 +573,3 @@ stereoSGM::status_t stereoSGM::f_medianFilter3x3
     return SUCCESS;
 }
 
-stereoSGM::status_t stereoSGM::compute
-(
-    uint8_t *imgLeft,
-    uint8_t *imgRight
-)
-{
-    int32_t *ctLeft    = new int32_t[m_imgWidth * m_imgHeight];
-    int32_t *ctRight   = new int32_t[m_imgWidth * m_imgHeight];
-    int8_t  *dispLeft  = new int8_t [m_imgWidth * m_imgHeight];
-    int8_t  *dispRight = new int8_t [m_imgWidth * m_imgHeight];
-    stereoSGMCostCube<int32_t> matchCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
-    stereoSGMCostCube<int32_t> sumCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
-
-    f_censusTransform5x5(imgLeft,  ctLeft);
-    f_censusTransform5x5(imgRight, ctRight);
-    f_getMatchCost(ctLeft, ctRight, matchCost);
-    f_aggregateCost(matchCost, sumCost);
-    f_pickDisparity<LEFT>(sumCost, dispLeft);
-    f_pickDisparity<RIGHT>(sumCost, dispRight);
-    f_checkLeftRight(dispLeft, dispRight);
-    f_medianFilter3x3(dispLeft, m_dispMap);
-
-    delete []ctLeft;
-    delete []ctRight;
-    delete []dispLeft;
-    delete []dispRight;
-
-    return SUCCESS;
-}
-
-stereoSGM::stereoSGM
-(
-    int32_t i_imgWidth,
-    int32_t i_imgHeight,
-    int32_t i_imgDisp,
-    int8_t  i_P1,
-    int8_t  i_P2
-) :
-m_imgWidth(i_imgWidth),
-m_imgHeight(i_imgHeight),
-m_imgDisp(i_imgDisp),
-m_P1(i_P1),
-m_P2(i_P2)
-{
-    // --------------------------------------------- //
-    // the disparity range should be multiple of 16  //
-    // in this example, disparity is 64              //
-    // make sure P1 is smaller than P2 (constant)    //
-    // --------------------------------------------- //
-    assert(m_imgDisp % 16 == 0);
-    assert(m_P1 < m_P2);
-
-    m_dispMap = new int8_t[m_imgWidth * m_imgHeight];
-}
-
-stereoSGM::~stereoSGM()
-{
-    if(m_dispMap != nullptr) delete []m_dispMap;
-}

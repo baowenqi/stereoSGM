@@ -16,69 +16,19 @@ struct stereoSGMCostCube
     T        m_cubeBoundaryVal;
     T       *m_cube;
 
-    stereoSGMCostCube(int32_t i_cubeWidth, int32_t i_cubeHeight, int32_t i_cubeDisp, int32_t i_cubeBoundaryVal) :
-    m_cubeWidth(i_cubeWidth), m_cubeHeight(i_cubeHeight), m_cubeDisp(i_cubeDisp), m_cubeBoundaryVal(i_cubeBoundaryVal)
-    {
-        m_cubeLP = m_cubeWidth * m_cubeDisp;
-        m_cube = new T[m_cubeHeight * m_cubeLP];
-        std::fill_n(m_cube, 0, m_cubeHeight * m_cubeLP * sizeof(T));
-    }
-
-   ~stereoSGMCostCube()
-    { delete []m_cube; }
-
-    // --------------------------------------------- //                                          
-    // if coordinate(x, y, d) is out-of-boundary,    //
-    // get method return a constant value predefined //
-    // set method dummy the operation                //
-    // --------------------------------------------- //
-    T get(int32_t x, int32_t y, int32_t d)
-    {
-        if(x >= 0 && x < m_cubeWidth &&
-           y >= 0 && y < m_cubeHeight &&
-           d >= 0 && d < m_cubeDisp)
-           return *(m_cube + y * m_cubeLP + x * m_cubeDisp + d);
-        else
-           return m_cubeBoundaryVal;
-    }
-    
-    void set(int32_t x, int32_t y, int32_t d, T val)
-    {
-        if(x >= 0 && x < m_cubeWidth &&
-           y >= 0 && y < m_cubeHeight &&
-           d >= 0 && d < m_cubeDisp)
-           *(m_cube + y * m_cubeLP + x * m_cubeDisp + d) = val;
-    }
-
-    // --------------------------------------------- //                                          
-    // find the mininum cost in disp column(x, y)    //
-    // --------------------------------------------- //                                          
-    T getMin(int32_t x, int32_t y)
-    {
-        T min = m_cubeBoundaryVal;
-        if(x >= 0 && x < m_cubeWidth && y >= 0 && y < m_cubeHeight)
-        {
-            int cubeOfst = y * m_cubeLP + x * m_cubeDisp;
-            for(int d = 0; d < m_cubeDisp; d++)
-            {
-                T val = *(m_cube + cubeOfst + d);
-                if(val < min) min = val;
-            }
-        }
-
-        return min;
-    }
-
-    stereoSGMCostCube& operator+=(const stereoSGMCostCube<T>& rhs)
-    {
-        for(int i = 0; i < m_cubeHeight * m_cubeLP; i++)
-        {
-            *(this->m_cube + i) += static_cast<T>(*(rhs.m_cube + i));
-        }
-        return *this;
-    }
+    stereoSGMCostCube(int32_t i_cubeWidth, int32_t i_cubeHeight, int32_t i_cubeDisp, int32_t i_cubeBoundaryVal);
+   ~stereoSGMCostCube();
+    T get(int32_t x, int32_t y, int32_t d);
+    void set(int32_t x, int32_t y, int32_t d, T val);
+    T getMin(int32_t x, int32_t y);
+    stereoSGMCostCube& operator+=(const stereoSGMCostCube<T>& rhs);
 };
 
+// ------------------------------------------------- //
+// this is the stereoSGM engine class                //
+// initial the engine by instance the class and call //
+// compute to get the disparity map.                 //
+// ------------------------------------------------- //
 class stereoSGM
 {
     public:
