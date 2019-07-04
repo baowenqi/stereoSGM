@@ -20,18 +20,18 @@ using namespace cv;
 // int32_t (lower 24 bits are useful).               //
 // the mapping of the window elements position and   //
 // output bit position (center-skipped) is like:     //
-//      0    1    2    3    4                        //
-//   |----+----+----+----+----|                      //
-// 0 | 23 | 22 | 21 | 20 | 19 |                      // 
-//   |----+----+----+----+----|                      //
-// 1 | 18 | 17 | 16 | 15 | 14 |                      // 
-//   |----+----+----+----+----|                      //
-// 2 | 13 | 12 |  * | 11 | 10 |                      // 
-//   |----+----+----+----+----|                      //
-// 3 |  9 |  8 |  7 |  6 |  5 |                      // 
-//   |----+----+----+----+----|                      //
-// 4 |  4 |  3 |  2 |  1 |  0 |                      // 
-//   |----+----+----+----+----|                      //
+//                0    1    2    3    4              //
+//             |----+----+----+----+----|            //
+// bitPos1-> 0 | 23 | 22 | 21 | 20 | 19 |            // 
+//             |----+----+----+----+----|            //
+//           1 | 18 | 17 | 16 | 15 | 14 |            // 
+//             |----+----+----+----+----|            //
+//           2 | 13 | 12 |  * | 11 | 10 |            // 
+//             |----+----+----+----+----|            //
+//           3 |  9 |  8 |  7 |  6 |  5 |            // 
+//             |----+----+----+----+----|            //
+//           4 |  4 |  3 |  2 |  1 |  0 | <-bitPos0  // 
+//             |----+----+----+----+----|            //
 // if window(i, j) > window(2, 2), then its corres-  //
 // ponding output bit is 1, otherwise it's 0.        //
 // ------------------------------------------------- //
@@ -62,28 +62,41 @@ stereoSGM::status_t stereoSGM::f_censusTransform5x5
             // ------------------------------------- //
             int32_t srcCenterOfst = (dy + ctWinRad) * srcLinePitch + (dx + ctWinRad);
             uint8_t srcCenter = *(src + srcCenterOfst);
-            for(int wy = 0; wy < ctWinSize; wy++)
-            {
-                for(int wx = 0; wx < ctWinSize; wx++)
-                {
-                    int32_t bitPos = ctDataMsb - (wy * ctWinSize + wx);
 
-                    // ----------------------------- //
-                    // skip the center element       //
-                    // ----------------------------- //
-                    if(bitPos != 11)
-                    {
-                        int32_t srcDataOfst = (dy + wy) * srcLinePitch + (dx + wx);
-                        uint8_t srcData = *(src + srcDataOfst);
-                        // -------------------------------------------- //
-                        // for the bit position less then 11 (center),  //
-                        // +1 to adjust the position, fit the hole of   //
-                        // center                                       //
-                        // -------------------------------------------- //
-                        bitPos = bitPos < 11 ? bitPos + 1 : bitPos;
-                        dstData |= (srcData > srcCenter) << bitPos;
-                    }
+            // ------------------------------------- //
+            // compute row0, row1 and row3, row4     //
+            // bitPos0 counts from right-bottom      //
+            // bitPos1 counts from left-top          //
+            // ------------------------------------- //
+            int32_t bitPos0 = 0, bitPos1 = ctDataMsb;
+            for(int wy = 0; wy < ctWinRad; wy++)
+            {
+                for(int wx = 0; wx < ctWinSize; wx++, bitPos0++, bitPos1--)
+                {
+                    int32_t srcDataOfst0 = (dy + ctWinSize - 1 - wy) * srcLinePitch + (dx + ctWinSize - 1 -wx);
+                    int32_t srcDataOfst1 = (dy + wy) * srcLinePitch + (dx + wx);
+
+                    uint8_t srcData0 = *(src + srcDataOfst0);
+                    uint8_t srcData1 = *(src + srcDataOfst1);
+
+                    dstData |= (srcData0 > srcCenter) << bitPos0;
+                    dstData |= (srcData1 > srcCenter) << bitPos1;
                 }
+            }
+            // ------------------------------------- //
+            // compute row2, col0, col1, col3, col4  //
+            // so that we can skip center pixel      //
+            // ------------------------------------- //
+            for(int wx = 0; wx < ctWinRad; wx++, bitPos0++, bitPos1--)
+            {
+                int32_t srcDataOfst0 = (dy + ctWinRad) * srcLinePitch + (dx + ctWinSize - 1 -wx);
+                int32_t srcDataOfst1 = (dy + ctWinRad) * srcLinePitch + (dx + wx);
+
+                uint8_t srcData0 = *(src + srcDataOfst0);
+                uint8_t srcData1 = *(src + srcDataOfst1);
+
+                dstData |= (srcData0 > srcCenter) << bitPos0;
+                dstData |= (srcData1 > srcCenter) << bitPos1;
             }
             *(dst + dy * m_imgWidth + dx) = dstData;
         }
