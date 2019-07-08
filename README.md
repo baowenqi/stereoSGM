@@ -13,7 +13,7 @@ $ mkdir build
 $ cd build
 $ cmake ..
 $ make
-$ ./stereoSGM
+$ ./stereoSGM ../data/cones/im2.png ../data/cones/im6.png
 ```
 
 ### Results

@@ -440,6 +440,20 @@ stereoSGM::status_t stereoSGM::f_getPathCost
     return SUCCESS;
 }
 
+// ------------------------------------------------- //
+// the aggregate function calculates and sums eight  //
+// path cost, which defines as below:                //
+// +------------------------------------------+      //
+// |      L1\   |L2 /L3                       |      //
+// |         \  |  /                          |      //
+// |      L0  \ | /  L4                       |      //
+// |     ------ * -------                     |      //
+// |          / | \                           |      //
+// |         /  |  \                          |      //
+// |      L7/ L6|   \L5                       |      //
+// +------------------------------------------+      //
+// * is arbitrary pixel in the sum cost cube         //
+// ------------------------------------------------- //
 stereoSGM::status_t stereoSGM::f_aggregateCost
 (
     stereoSGMCostCube<int32_t>  &matchCost,
