@@ -1,6 +1,5 @@
 #pragma once
 #include <stdint.h>
-#include <cstdio>
 
 // ------------------------------------------------- //
 // a customized structure providing the abstraction  //

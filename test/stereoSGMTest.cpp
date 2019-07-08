@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sys/time.h>
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
@@ -51,7 +52,15 @@ int main(int argc, char* argv[])
     // map by inputing the left and right bin //
     // -------------------------------------- //
     stereoSGM sgmEngine(imgLeft.cols, imgLeft.rows, MAX_DISP, P1, P2);
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     sgmEngine.compute(padLeft.data, padRight.data);
+
+    gettimeofday(&end, NULL);
+    float elapsedTime = end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) / 1e6f;
+    cout << "compute elapsed time = " << to_string(elapsedTime) << "s" << endl;
 
     // -------------------------------------- //
     // display the result for visual check    //

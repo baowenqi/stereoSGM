@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <algorithm>
 #include <iostream>
+#include <sys/time.h>
 #include "stereoSGM.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -450,7 +451,13 @@ stereoSGM::status_t stereoSGM::f_aggregateCost
     for(int i = 0; i < 8; i++)
         pathCostPtr[i] = new stereoSGMCostCube<int32_t>(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
 
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
     f_getPathCost<L0>(matchCost, *(pathCostPtr[0]));
+    gettimeofday(&end, NULL);
+    float elapsedTime = end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) / 1e6f;
+    cout << "path cost elapsed time = " << to_string(elapsedTime) << "s" << endl;
+
     f_getPathCost<L1>(matchCost, *(pathCostPtr[1]));
     f_getPathCost<L2>(matchCost, *(pathCostPtr[2]));
     f_getPathCost<L3>(matchCost, *(pathCostPtr[3]));
