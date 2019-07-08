@@ -11,16 +11,34 @@ using namespace cv;
 #define P2       20
 #define MAX_DISP 64
 
-int main()
+int main(int argc, char* argv[])
 {
+    String imgLeftPath;
+    String imgRightPath;
+
+    if(argc == 1)
+    {
+        imgLeftPath  = "../data/cones/im2.png";
+        imgRightPath = "../data/cones/im6.png";
+    }
+    else if(argc == 3)
+    {
+        imgLeftPath  = argv[1];
+        imgRightPath = argv[2];
+    }
+    else
+    {
+        cout << "Error: please input the left and right image!" << endl;
+        exit(1);
+    }
     cout << "start the stereoSGM test..." << endl;
 
     // ------------------------------------- //
     // get the left and right image          //
     // pad the boundry using opencv function //
     // ------------------------------------- //
-    Mat imgLeft  = imread("../data/cones/im2.png", CV_LOAD_IMAGE_GRAYSCALE);
-    Mat imgRight = imread("../data/cones/im6.png", CV_LOAD_IMAGE_GRAYSCALE);
+    Mat imgLeft  = imread(imgLeftPath,  CV_LOAD_IMAGE_GRAYSCALE);
+    Mat imgRight = imread(imgRightPath, CV_LOAD_IMAGE_GRAYSCALE);
 
     Mat padLeft, padRight;
     copyMakeBorder(imgLeft, padLeft, 2, 2, 2, 2, BORDER_CONSTANT, 0);
@@ -58,7 +76,7 @@ int main()
     }
 
     Mat dispImage = Mat(imgLeft.rows, imgLeft.cols, CV_8U, dispInt);
-    imwrite("../data/cones/my_result.png", dispImage);
+    imwrite("./my_result.png", dispImage);
     imshow("disparity map", dispImage);
     waitKey(0);
 
