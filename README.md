@@ -1,6 +1,6 @@
 # StereoSGM
 A single-thread CPU reference implementation of standard Semi-Global Matching (SGM) of stereo images.
-The stereSGM engine itself is OpenCV indenpendent, while the testbench uses the OpenCV image IO functions to load/save the images.
+The stereSGM engine itself is OpenCV independent, while the testbench uses the OpenCV image IO functions to load/save the images.
 
 ### Pre-requisites
 * Cmake 2.8
