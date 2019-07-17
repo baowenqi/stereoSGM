@@ -554,6 +554,41 @@ stereoSGM::status_t stereoSGM::f_aggregateCost
     return SUCCESS;
 }
 
+// ------------------------------------------------- //
+// thereotically, we need to compute the left-to-    //
+// right sum costs and right-to-left sum costs both. //
+// but the computing is too costly so that we have   //
+// this tricky to save almost half time.             //
+// consider 1 row of left-to-right sum costs:        //
+//      0  1  2 ...             x          imgWidth  //
+//    +--+--+--+--+--+--+--+--+--+--+--+--+--+       //
+//   0|                       |  |           |       //
+//   1|                       |  |           |       //
+// ...|                      $|  |           |       //
+//   d|                       | *|           |       //
+//    |                       |  |           |       //
+//   D|                       |  |           |       //
+//    +--+--+--+--+--+--+--+--+--+--+--+--+--+       //
+// the * value is the cost of x in the left image to //
+// the x-d in the right image in the given row.      //
+// and we can also regard it as the cost of x' in    //
+// the right image to the x'+d in the left image,    //
+// here x'=x-d. What is the cost of x' to x'+d-1?    //
+// from the geometry, it is the cost of x-1 to       //
+// x-1 - (d-1), which is in the place of $, so that  //
+// we can conclude the sum cost of right-to-left can //
+// represent as:                                     //
+//      0  1  2 ... x'                     imgWidth  //
+//    +--+--+--+--+--+--+--+--+--+--+--+--+--+       //
+//    |            \0 \                      |       //
+//    |             \1 \                     |       //
+//    |              \2 \                    |       //
+//    |               \d \                   |       //
+//    |                \  \                  |       //
+//    |                 \D \                 |       //
+//    +--+--+--+--+--+--+--+--+--+--+--+--+--+       //
+// it's in a diagnol direction.                      //
+// ------------------------------------------------- //
 template<stereoSGM::dispmap_t lr>
 stereoSGM::status_t stereoSGM::f_pickDisparity
 (
