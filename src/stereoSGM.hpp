@@ -66,10 +66,13 @@ class stereoSGM
     int8_t   m_P2;
     typedef enum e_direction {L0, L1, L2, L3, L4, L5, L6, L7} direction_t;
     typedef enum e_dispmap {LEFT, RIGHT} dispmap_t;
+    typedef enum e_pad {CONSTANT, EXTEND} pad_t;
 
     // --------------------------------------------- //                                          
     // private methods                               //
     // --------------------------------------------- //
+    template<typename T, pad_t P>
+    status_t f_padImage(T* src, T* dst, int padNum, T constVal = 0);
     status_t f_censusTransform5x5(uint8_t *src, int32_t *dst);
     int32_t  f_getHammingDistance(int32_t src1, int32_t src2);
     status_t f_getMatchCost(int32_t *ctLeft, int32_t *ctRight, stereoSGMCostCube<int32_t> &matchCost);

@@ -143,26 +143,91 @@ stereoSGM::status_t stereoSGM::compute
     uint8_t *imgRight
 )
 {
+    uint8_t *imgPad    = new uint8_t[(m_imgWidth + 4) * (m_imgHeight + 4)];
     int32_t *ctLeft    = new int32_t[m_imgWidth * m_imgHeight];
     int32_t *ctRight   = new int32_t[m_imgWidth * m_imgHeight];
     int8_t  *dispLeft  = new int8_t [m_imgWidth * m_imgHeight];
     int8_t  *dispRight = new int8_t [m_imgWidth * m_imgHeight];
     stereoSGMCostCube<int32_t> matchCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
     stereoSGMCostCube<int32_t> sumCost(m_imgWidth, m_imgHeight, m_imgDisp, m_imgDisp);
+    int8_t *dispLeftPad = new int8_t [(m_imgWidth + 2) * (m_imgHeight + 2)];
 
-    f_censusTransform5x5(imgLeft,  ctLeft);
-    f_censusTransform5x5(imgRight, ctRight);
+    f_padImage<uint8_t, CONSTANT>(imgLeft, imgPad, 2);
+    f_censusTransform5x5(imgPad,  ctLeft);
+    f_padImage<uint8_t, CONSTANT>(imgRight, imgPad, 2);
+    f_censusTransform5x5(imgPad, ctRight);
     f_getMatchCost(ctLeft, ctRight, matchCost);
     f_aggregateCost(matchCost, sumCost);
     f_pickDisparity<LEFT>(sumCost, dispLeft);
     f_pickDisparity<RIGHT>(sumCost, dispRight);
     f_checkLeftRight(dispLeft, dispRight);
+    f_padImage<int8_t, EXTEND>(dispLeft, dispLeftPad, 1);
     f_medianFilter3x3(dispLeft, m_dispMap);
 
+    delete []imgPad;
     delete []ctLeft;
     delete []ctRight;
     delete []dispLeft;
     delete []dispRight;
+    delete []dispLeftPad;
+
+    return SUCCESS;
+}
+
+// ------------------------------------------------- //
+// padding the src image with a certain bord pattern //
+// currently support:                                //
+// 1. CONSTANT                                       //
+// 2. EXTEND                                         //
+// ------------------------------------------------- //
+template<typename T, stereoSGM::pad_t P>
+stereoSGM::status_t stereoSGM::f_padImage
+(
+    T*  src,
+    T*  dst,
+    int padNum,
+    T   constVal
+)
+{
+    int dstWidth = m_imgWidth + 2 * padNum;
+    int dstHeight = m_imgHeight + 2 * padNum;
+    int dstOfst = dstWidth * padNum + padNum;
+
+    for(int y = 0; y < m_imgHeight; y++)
+    {
+        for(int x = 0; x < m_imgWidth; x++)
+	{
+	    T srcData = *(src + y * m_imgWidth + x);
+	    *(dst + dstOfst + y * dstWidth + x) = srcData;
+	}
+    }
+
+    T padVal;
+    if(P == CONSTANT) padVal = constVal;
+
+    for(int y = 0; y < padNum; y++)
+    {
+        for(int x = padNum; x < dstWidth - padNum; x++)
+        {
+    	    if(P == EXTEND) padVal = *(dst + padNum * dstWidth + x);
+            *(dst + y * dstWidth + x) = padVal;
+
+            if(P == EXTEND) padVal = *(dst + (dstHeight - 1 - padNum) * dstWidth + x);
+            *(dst + (dstHeight - 1 - y) * dstWidth + x) = padVal;
+        }
+    }
+    
+    for(int x = 0; x < padNum; x++)
+    {
+        for(int y = 0; y < dstHeight; y++)
+        {
+	    if(P == EXTEND) padVal = *(dst + y * dstWidth + padNum);
+            *(dst + y * dstWidth + x) = padVal;
+
+	    if(P == EXTEND) padVal = *(dst + y * dstWidth + (dstWidth - 1 - padNum));
+            *(dst + y * dstWidth + (dstWidth - 1 - x)) = padVal;
+        }
+    }
 
     return SUCCESS;
 }
@@ -558,16 +623,16 @@ stereoSGM::status_t stereoSGM::f_medianFilter3x3
     int8_t *dst
 )
 {
-    for(int y = 1; y < m_imgHeight - 1; y++)
+    for(int y = 0; y < m_imgHeight; y++)
     {
-        for(int x = 1; x < m_imgWidth - 1; x++)
+        for(int x = 0; x < m_imgWidth; x++)
         {
             array<int8_t, 9> a;
-            for(int wy = -1; wy < 1; wy++)
+            for(int wy = 0; wy < 2; wy++)
             {
-                for(int wx = -1; wx < 1; wx++)
+                for(int wx = 0; wx < 2; wx++)
                 {
-                    int arrayIdx = (wy + 1) * 3 + (wx + 1);
+                    int arrayIdx = wy * 3 + wx;
                     int sy = y + wy;
                     int sx = x + wx;
                     a[arrayIdx] = *(src + sy * m_imgWidth + sx);
@@ -577,18 +642,6 @@ stereoSGM::status_t stereoSGM::f_medianFilter3x3
             sort(a.begin(), a.end());
             *(dst + y * m_imgWidth + x) = a[4];
         }
-    }
-
-    for(int x = 0; x < m_imgWidth; x++)
-    {
-        *(dst + x) = *(src + x);
-        *(dst + (m_imgHeight - 1) * m_imgWidth + x) = *(src + (m_imgHeight - 1) * m_imgWidth + x);
-    }
-
-    for(int y = 1; y < m_imgHeight - 1; y++)
-    {
-        *(dst + y * m_imgWidth) = *(src + y * m_imgWidth);
-        *(dst + y * m_imgWidth + m_imgWidth - 1) = *(src + y * m_imgWidth + m_imgWidth - 1);
     }
 
     return SUCCESS;

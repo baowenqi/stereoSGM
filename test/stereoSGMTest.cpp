@@ -36,14 +36,9 @@ int main(int argc, char* argv[])
 
     // ------------------------------------- //
     // get the left and right image          //
-    // pad the boundry using opencv function //
     // ------------------------------------- //
     Mat imgLeft  = imread(imgLeftPath,  CV_LOAD_IMAGE_GRAYSCALE);
     Mat imgRight = imread(imgRightPath, CV_LOAD_IMAGE_GRAYSCALE);
-
-    Mat padLeft, padRight;
-    copyMakeBorder(imgLeft, padLeft, 2, 2, 2, 2, BORDER_CONSTANT, 0);
-    copyMakeBorder(imgRight, padRight, 2, 2, 2, 2, BORDER_CONSTANT, 0);
 
     // -------------------------------------- //
     // initial the stereo engine with image   //
@@ -56,7 +51,7 @@ int main(int argc, char* argv[])
     struct timeval start, end;
     gettimeofday(&start, NULL);
 
-    sgmEngine.compute(padLeft.data, padRight.data);
+    sgmEngine.compute(imgLeft.data, imgRight.data);
 
     gettimeofday(&end, NULL);
     float elapsedTime = end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) / 1e6f;
